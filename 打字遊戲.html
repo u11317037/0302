@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極簡中英文打字練習</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --bg: #f5f7fa;
+            --text: #333;
+            --correct: #2ecc71;
+            --wrong: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 { text-align: center; color: var(--primary); }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            font-weight: bold;
+            background: #eee;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        #quote-display {
+            font-size: 1.5rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 5px solid var(--primary);
+            min-height: 100px;
+            word-wrap: break-word;
+        }
+
+        .char-correct { color: var(--correct); }
+        .char-wrong { background-color: var(--wrong); color: white; border-radius: 2px; }
+        .char-current { border-bottom: 3px solid var(--primary); }
+
+        #input-area {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border 0.3s;
+        }
+
+        #input-area:focus { border-color: var(--primary); }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: var(--primary);
+            color: white;
+            font-size: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.8; }
+        .btn-mode { background: #6c757d; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>打字練習系統</h1>
+    
+    <div class="stats">
+        <div>時間: <span id="timer">0</span>s</div>
+        <div>速度 (WPM): <span id="wpm">0</span></div>
+        <div>正確率: <span id="accuracy">100</span>%</div>
+    </div>
+
+    <div id="quote-display">正在載入文字...</div>
+    
+    <textarea id="input-area" placeholder="點擊這裡開始輸入..." autofocus></textarea>
+
+    <div class="controls">
+        <button onclick="resetGame()">重新開始</button>
+        <button class="btn-mode" onclick="toggleLanguage()">切換中/英文</button>
+    </div>
+</div>
+
+<script>
+    const quotes_en = [
+        "The only way to do great work is to love what you do.",
+        "Stay hungry, stay foolish.",
+        "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+        "Life is what happens when you're busy making other plans.",
+        "Believe you can and you're halfway there."
+    ];
+
+    const quotes_zh = [
+        "失敗並不可怕，可怕的是你還沒嘗試就選擇放棄。",
+        "每一天都是一個新的開始，讓我們努力活出精彩。",
+        "勤奮是通往成功的唯一道路，沒有捷徑可以走。",
+        "心之所向，素履以往；生如逆旅，一葦以航。",
+        "態度決定高度，格局決定結局，細節決定成敗。"
+    ];
+
+    let currentMode = 'en'; // 'en' or 'zh'
+    let timerInterval = null;
+    let startTime = null;
+    let isStarted = false;
+    let errors = 0;
+
+    const displayElement = document.getElementById('quote-display');
+    const inputElement = document.getElementById('input-area');
+    const timerElement = document.getElementById('timer');
+    const wpmElement = document.getElementById('wpm');
+    const accuracyElement = document.getElementById('accuracy');
+
+    function getRandomQuote() {
+        const list = currentMode === 'en' ? quotes_en : quotes_zh;
+        return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function renderQuote(quote) {
+        displayElement.innerHTML = '';
+        quote.split('').forEach(char => {
+            const span = document.createElement('span');
+            span.innerText = char;
+            displayElement.appendChild(span);
+        });
+    }
+
+    function startTimer() {
+        startTime = new Date();
+        timerInterval = setInterval(() => {
+            const now = new Date();
+            const elapsed = Math.floor((now - startTime) / 1000);
+            timerElement.innerText = elapsed;
+            calculateStats(elapsed);
+        }, 1000);
+    }
+
+    function calculateStats(elapsed) {
+        if (elapsed === 0) return;
+        const textLength = inputElement.value.length;
+        // WPM: 以 5 個字為一個單元
+        const wpm = Math.round((textLength / 5) / (elapsed / 60));
+        wpmElement.innerText = wpm;
+
+        const accuracy = Math.max(0, Math.round(((textLength - errors) / textLength) * 100));
+        accuracyElement.innerText = isNaN(accuracy) ? 100 : accuracy;
+    }
+
+    inputElement.addEventListener('input', () => {
+        if (!isStarted) {
+            isStarted = true;
+            startTimer();
+        }
+
+        const quoteSpans = displayElement.querySelectorAll('span');
+        const inputChars = inputElement.value.split('');
+        
+        errors = 0;
+        quoteSpans.forEach((span, index) => {
+            const char = inputChars[index];
+            if (char == null) {
+                span.className = '';
+                if (index === inputChars.length) span.classList.add('char-current');
+            } else if (char === span.innerText) {
+                span.className = 'char-correct';
+            } else {
+                span.className = 'char-wrong';
+                errors++;
+            }
+        });
+
+        if (inputChars.length >= quoteSpans.length) {
+            clearInterval(timerInterval);
+            inputElement.disabled = true;
+            alert(`練習完成！\n速度: ${wpmElement.innerText} WPM\n正確率: ${accuracyElement.innerText}%`);
+        }
+    });
+
+    function resetGame() {
+        clearInterval(timerInterval);
+        isStarted = false;
+        errors = 0;
+        timerElement.innerText = '0';
+        wpmElement.innerText = '0';
+        accuracyElement.innerText = '100';
+        inputElement.value = '';
+        inputElement.disabled = false;
+        renderQuote(getRandomQuote());
+        inputElement.focus();
+    }
+
+    function toggleLanguage() {
+        currentMode = currentMode === 'en' ? 'zh' : 'en';
+        resetGame();
+    }
+
+    // 初始化
+    renderQuote(getRandomQuote());
+</script>
+
+</body>
+</html>
